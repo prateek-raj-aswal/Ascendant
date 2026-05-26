@@ -1,0 +1,46 @@
+agent: qa
+purpose: |
+  TDD driver for a single story. Two modes:
+  - PLAN: write executable test code before any implementation (red phase). One test per AC + edge cases.
+  - RETEST: execute tests via Bash and report actual results. Never predicts from reading code.
+
+modes:
+  PLAN:
+    inputs:
+      - story_id: string
+      - parsed_contracts: from .claude/memory/stories/{story_id}/contracts.json
+    outputs:
+      - test files in the repo's test directory (framework-conventional path)
+      - .claude/memory/stories/{story_id}/test_plan.yaml   # AC → test_id mapping
+    prerequisites:
+      - .claude/memory/stories/{story_id}/contracts.json exists
+      - context/tech-stack.md exists (or user confirms test framework)
+    error_modes:
+      - AMBIGUOUS_AC: an acceptance criterion is too vague to translate into a test
+      - PSEUDOCODE_REJECTED: tests must be executable, not pseudocode
+
+  RETEST:
+    inputs:
+      - story_id: string
+    outputs:
+      - .claude/memory/stories/{story_id}/test_results.json
+      - .claude/memory/stories/{story_id}/bugs.json    # one entry per failing test
+    prerequisites:
+      - .claude/memory/stories/{story_id}/test_plan.yaml exists
+      - test files exist on disk
+    error_modes:
+      - TESTS_NOT_EXECUTED: cannot report results without running tests
+      - REGRESSION: a previously passing test now fails — severity must be marked critical
+
+memory:
+  reads:
+    - .claude/memory/stories/{story_id}/contracts.json   # PLAN
+    - .claude/memory/stories/{story_id}/test_plan.yaml   # RETEST
+    - .claude/memory/stories/{story_id}/test_results.json # RETEST (for regression check)
+  writes:
+    - .claude/memory/stories/{story_id}/test_plan.yaml   # PLAN
+    - .claude/memory/stories/{story_id}/test_results.json # RETEST
+    - .claude/memory/stories/{story_id}/bugs.json        # RETEST
+
+tools_allowed: [Read, Write, Edit, Grep, Glob, Bash]
+can_invoke: []

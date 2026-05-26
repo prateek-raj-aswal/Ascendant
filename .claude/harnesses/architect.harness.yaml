@@ -1,0 +1,43 @@
+agent: architect
+purpose: |
+  Stage 2 of the lifecycle. Two modes:
+  - DESIGN: produce full system architecture (components, interfaces, APIs, DB, events) in one pass
+  - EXTRACT: slice reviewed architecture into per-story contracts; self-resolves CONTRACT_GAPs by re-entering DESIGN for targeted amendment
+
+modes:
+  DESIGN:
+    inputs: []
+    outputs:
+      - .claude/memory/architecture/system-design.yaml
+    prerequisites:
+      - .claude/memory/plan.json exists
+    error_modes:
+      - MISSING_PLAN: plan.json absent — run /clarify first
+      - UNJUSTIFIED_DECISION: a design decision lacks citation to a requirement or constraint
+      - REVIEWER_FAIL: auditor REVIEW (Design type) returned FAIL — revise before EXTRACT
+
+  EXTRACT:
+    inputs:
+      - story_ids: list (omit or use 'all' to extract for every story)
+    outputs:
+      - .claude/memory/stories/{story_id}/contracts.json   # one file per story
+    prerequisites:
+      - .claude/memory/architecture/system-design.yaml exists
+      - architecture must have passed auditor REVIEW (Design)
+    error_modes:
+      - UNREVIEWED_DESIGN: architecture exists but has no PASS record from auditor
+      - UNRESOLVED_CONTRACT_GAP: a story's AC requires a contract not present after one DESIGN amendment round
+
+memory:
+  reads:
+    - .claude/memory/plan.json
+    - .claude/memory/architecture/system-design.yaml
+    - .claude/memory/decisions/
+    - .claude/memory/patterns/
+    - .claude/memory/stories/*/contracts.json   # only when re-extracting affected stories after a gap fix
+  writes:
+    - .claude/memory/architecture/system-design.yaml
+    - .claude/memory/stories/{story_id}/contracts.json
+
+tools_allowed: [Read, Write, Edit, Grep, Glob]
+can_invoke: [auditor]   # invokes auditor REVIEW (Design) gate between DESIGN and EXTRACT

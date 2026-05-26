@@ -1,0 +1,32 @@
+agent: doc-writer
+purpose: |
+  Per-story incremental documentation + final consolidation at /ship. Reads existing docs first,
+  makes surgical edits only. ADRs created only for user-selected decisions_log entries.
+
+inputs:
+  - scope: story | final
+  - story_id: string (required if scope == story)
+outputs:
+  - docs/README.md (updated surgically)
+  - docs/api/{resource}.md (created or updated per story's API contracts)
+  - docs/adr/ADR-{N}-{slug}.md (only for user-selected decisions)
+  - docs/runbooks/{feature}.md (only if story introduces a new failure mode)
+  - .claude/memory/stories/{story_id}/doc_summary.md   # one-line summary appended
+prerequisites:
+  - scope: story → kanban shows the story as "done"
+  - scope: final → all stories done
+error_modes:
+  - STORY_NOT_DONE: scope=story invoked but story status != done
+  - OVERWRITE_REJECTED: would overwrite content from a different story — must edit surgically instead
+
+memory:
+  reads:
+    - .claude/memory/stories/{story_id}/contracts.json
+    - .claude/memory/stories/{story_id}/build_log.json
+    - .claude/memory/decisions/
+    - .claude/memory/kanban.json
+  writes:
+    - .claude/memory/stories/{story_id}/doc_summary.md
+
+tools_allowed: [Read, Write, Edit, Grep, Glob]
+can_invoke: []
